@@ -1,20 +1,19 @@
-const CACHE_NAME = "netto-forfettario-v2";
-const ASSETS = ["./", "./index.html", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+// Versione "semplice": nessuna cache, ogni richiesta va sempre a prendere
+// l'ultima versione dei file. Comodo mentre l'app è ancora in sviluppo:
+// niente più bisogno di svuotare la cache dopo ogni aggiornamento.
+// (Il funzionamento offline si potrà riattivare più avanti, a sviluppo concluso.)
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
+  event.respondWith(fetch(event.request));
 });
