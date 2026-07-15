@@ -1,4 +1,4 @@
-const CACHE_NAME = "netto-forfettario-v1";
+const CACHE_NAME = "netto-forfettario-v2";
 const ASSETS = ["./", "./index.html", "./app.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
