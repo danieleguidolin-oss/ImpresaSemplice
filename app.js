@@ -25,6 +25,45 @@ const SOGLIA = 85000;
 const STORAGE_KEY = "netto-forfettario-data";
 const MESI = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
+// ---------- Ricerca categoria da codice ATECO (copre tutte le divisioni 01-99) ----------
+const ATECO_ECCEZIONI = [
+  { match: (c) => c.startsWith("4520"), group: "altre" },
+  { match: (c) => c.startsWith("461"), group: "intermediari" },
+  { match: (c) => c.startsWith("4781"), group: "ambulante_alim" },
+  { match: (c) => c.startsWith("4782") || c.startsWith("4789"), group: "ambulante_altri" },
+];
+
+const ATECO_DIVISIONI = {
+  "01": "altre", "02": "altre", "03": "altre", "05": "altre", "06": "altre", "07": "altre", "08": "altre", "09": "altre",
+  "10": "alimentari", "11": "alimentari",
+  "12": "altre", "13": "altre", "14": "altre", "15": "altre", "16": "altre", "17": "altre", "18": "altre", "19": "altre",
+  "20": "altre", "21": "altre", "22": "altre", "23": "altre", "24": "altre", "25": "altre", "26": "altre", "27": "altre", "28": "altre", "29": "altre",
+  "30": "altre", "31": "altre", "32": "altre", "33": "altre",
+  "35": "altre", "36": "altre", "37": "altre", "38": "altre", "39": "altre",
+  "41": "costruzioni", "42": "costruzioni", "43": "costruzioni",
+  "45": "commercio", "46": "commercio", "47": "commercio",
+  "49": "altre", "50": "altre", "51": "altre", "52": "altre", "53": "altre",
+  "55": "ristorazione", "56": "ristorazione",
+  "58": "altre", "59": "altre", "60": "altre", "61": "altre", "62": "altre", "63": "altre",
+  "64": "altre", "65": "professionale", "66": "professionale",
+  "68": "costruzioni",
+  "69": "professionale", "70": "professionale", "71": "professionale", "72": "professionale", "73": "professionale", "74": "professionale", "75": "professionale",
+  "77": "altre", "78": "altre", "79": "altre", "80": "altre", "81": "altre", "82": "altre",
+  "84": "altre",
+  "85": "professionale", "86": "professionale", "87": "professionale", "88": "professionale",
+  "90": "altre", "91": "altre", "92": "altre", "93": "altre", "94": "altre", "95": "altre", "96": "altre",
+  "97": "altre", "98": "altre", "99": "altre",
+};
+
+function trovaCategoriaDaAteco(input) {
+  const cifre = (input || "").replace(/[^0-9]/g, "");
+  if (cifre.length < 2) return null;
+  for (const ecc of ATECO_ECCEZIONI) {
+    if (ecc.match(cifre)) return ecc.group;
+  }
+  return ATECO_DIVISIONI[cifre.slice(0, 2)] || null;
+}
+
 function euro(n) {
   return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Math.round(n || 0));
 }
@@ -281,6 +320,34 @@ function FieldSelect({ label, value, onChange, options }) {
   );
 }
 
+function AtecoSearch({ onFound }) {
+  const [query, setQuery] = useState("");
+  const risultato = query.length >= 2 ? trovaCategoriaDaAteco(query) : null;
+  useEffect(() => {
+    if (risultato) onFound(risultato);
+  }, [risultato]);
+  const catTrovata = risultato ? CATEGORIE.find((c) => c.id === risultato) : null;
+  return (
+    <div className="field">
+      <span className="field-label">Cerca per codice ATECO (es. 62.20.10)</span>
+      <input
+        className="field-input mono"
+        type="text"
+        placeholder="Inserisci il tuo codice ATECO"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {query.length >= 2 && (
+        <div className={"ateco-hint " + (catTrovata ? "ateco-hint-ok" : "ateco-hint-ko")}>
+          {catTrovata
+            ? `Trovato: ${catTrovata.label} — coefficiente ${catTrovata.coeff}%`
+            : "Codice non riconosciuto: scegli manualmente qui sotto"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SetupModal({ settings, onSave }) {
   const [local, setLocal] = useState(settings);
   return (
@@ -288,7 +355,8 @@ function SetupModal({ settings, onSave }) {
       <div className="modal setup-modal">
         <div className="modal-title">Impostiamo il tuo profilo</div>
         <div className="modal-sub">Bastano tre risposte per calcolare accantonamenti precisi.</div>
-        <FieldSelect label="Categoria attività (coefficiente ATECO)" value={local.categoriaId}
+        <AtecoSearch onFound={(id) => setLocal((l) => ({ ...l, categoriaId: id }))} />
+        <FieldSelect label="Oppure scegli manualmente la categoria" value={local.categoriaId}
           onChange={(v) => setLocal({ ...local, categoriaId: v })}
           options={CATEGORIE.map((c) => ({ value: c.id, label: c.coeff ? `${c.label} — ${c.coeff}%` : c.label }))} />
         {local.categoriaId === "custom" && (
@@ -321,7 +389,8 @@ function SettingsModal({ settings, onSave, onClose }) {
         <label className="field"><span className="field-label">Anno fiscale</span>
           <input className="field-input" type="number" value={local.anno}
             onChange={(e) => setLocal({ ...local, anno: parseInt(e.target.value) || local.anno })} /></label>
-        <FieldSelect label="Categoria attività" value={local.categoriaId}
+        <AtecoSearch onFound={(id) => setLocal((l) => ({ ...l, categoriaId: id }))} />
+        <FieldSelect label="Oppure scegli manualmente la categoria" value={local.categoriaId}
           onChange={(v) => setLocal({ ...local, categoriaId: v })}
           options={CATEGORIE.map((c) => ({ value: c.id, label: c.coeff ? `${c.label} — ${c.coeff}%` : c.label }))} />
         {local.categoriaId === "custom" && (
