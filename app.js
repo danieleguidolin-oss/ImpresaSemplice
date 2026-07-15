@@ -78,6 +78,7 @@ const defaultSettings = {
   aliquotaImposta: 15,
   gestioneId: "separata",
   riduzione35: false,
+  atecoCode: "",
 };
 
 function calcolaMovimento(importo, settings) {
@@ -309,20 +310,19 @@ function App() {
   );
 }
 
-function FieldSelect({ label, value, onChange, options }) {
+function FieldSelect({ label, value, onChange, options, disabled }) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
-      <select className="field-input" value={value} onChange={(e) => onChange(e.target.value)}>
+      <select className="field-input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </label>
   );
 }
 
-function AtecoSearch({ onFound }) {
-  const [query, setQuery] = useState("");
-  const risultato = query.length >= 2 ? trovaCategoriaDaAteco(query) : null;
+function AtecoSearch({ value, onChange, onFound }) {
+  const risultato = value.length >= 2 ? trovaCategoriaDaAteco(value) : null;
   useEffect(() => {
     if (risultato) onFound(risultato);
   }, [risultato]);
@@ -334,15 +334,20 @@ function AtecoSearch({ onFound }) {
         className="field-input mono"
         type="text"
         placeholder="Inserisci il tuo codice ATECO"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       />
-      {query.length >= 2 && (
+      {value.length >= 2 && (
         <div className={"ateco-hint " + (catTrovata ? "ateco-hint-ok" : "ateco-hint-ko")}>
           {catTrovata
             ? `Trovato: ${catTrovata.label} — coefficiente ${catTrovata.coeff}%`
             : "Codice non riconosciuto: scegli manualmente qui sotto"}
         </div>
+      )}
+      {value.length >= 2 && catTrovata && (
+        <button type="button" className="link-btn" onClick={() => onChange("")}>
+          Cancella il codice e scegli la categoria manualmente
+        </button>
       )}
     </div>
   );
@@ -350,13 +355,20 @@ function AtecoSearch({ onFound }) {
 
 function SetupModal({ settings, onSave }) {
   const [local, setLocal] = useState(settings);
+  const categoriaBloccata = local.atecoCode.length >= 2 && !!trovaCategoriaDaAteco(local.atecoCode);
   return (
     <div className="modal-overlay">
       <div className="modal setup-modal">
         <div className="modal-title">Impostiamo il tuo profilo</div>
         <div className="modal-sub">Bastano tre risposte per calcolare accantonamenti precisi.</div>
-        <AtecoSearch onFound={(id) => setLocal((l) => ({ ...l, categoriaId: id }))} />
-        <FieldSelect label="Oppure scegli manualmente la categoria" value={local.categoriaId}
+        <AtecoSearch
+          value={local.atecoCode}
+          onChange={(v) => setLocal((l) => ({ ...l, atecoCode: v }))}
+          onFound={(id) => setLocal((l) => ({ ...l, categoriaId: id }))}
+        />
+        <FieldSelect label={categoriaBloccata ? "Categoria (impostata dal codice ATECO)" : "Oppure scegli manualmente la categoria"}
+          value={local.categoriaId}
+          disabled={categoriaBloccata}
           onChange={(v) => setLocal({ ...local, categoriaId: v })}
           options={CATEGORIE.map((c) => ({ value: c.id, label: c.coeff ? `${c.label} — ${c.coeff}%` : c.label }))} />
         {local.categoriaId === "custom" && (
@@ -381,6 +393,7 @@ function SetupModal({ settings, onSave }) {
 
 function SettingsModal({ settings, onSave, onClose }) {
   const [local, setLocal] = useState(settings);
+  const categoriaBloccata = local.atecoCode.length >= 2 && !!trovaCategoriaDaAteco(local.atecoCode);
   return (
     <div className="modal-overlay">
       <div className="modal">
@@ -389,8 +402,14 @@ function SettingsModal({ settings, onSave, onClose }) {
         <label className="field"><span className="field-label">Anno fiscale</span>
           <input className="field-input" type="number" value={local.anno}
             onChange={(e) => setLocal({ ...local, anno: parseInt(e.target.value) || local.anno })} /></label>
-        <AtecoSearch onFound={(id) => setLocal((l) => ({ ...l, categoriaId: id }))} />
-        <FieldSelect label="Oppure scegli manualmente la categoria" value={local.categoriaId}
+        <AtecoSearch
+          value={local.atecoCode}
+          onChange={(v) => setLocal((l) => ({ ...l, atecoCode: v }))}
+          onFound={(id) => setLocal((l) => ({ ...l, categoriaId: id }))}
+        />
+        <FieldSelect label={categoriaBloccata ? "Categoria (impostata dal codice ATECO)" : "Oppure scegli manualmente la categoria"}
+          value={local.categoriaId}
+          disabled={categoriaBloccata}
           onChange={(v) => setLocal({ ...local, categoriaId: v })}
           options={CATEGORIE.map((c) => ({ value: c.id, label: c.coeff ? `${c.label} — ${c.coeff}%` : c.label }))} />
         {local.categoriaId === "custom" && (
